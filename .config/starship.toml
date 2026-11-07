@@ -1,0 +1,49 @@
+# Terminal palette: cyan, blue, muted gray.
+add_newline = true
+format = """
+[╭─](bold cyan)$username$hostname$directory$git_branch$git_status$python$nodejs$cmd_duration
+[╰─](bold cyan)$character"""
+
+[username]
+show_always = true
+style_user = "bold cyan"
+format = "[$user]($style) [·](dimmed white) "
+
+[hostname]
+ssh_only = true
+format = "[$hostname](bold yellow) "
+
+[directory]
+style = "bold blue"
+truncation_length = 3
+truncate_to_repo = true
+read_only = " ro"
+format = "[$path]($style)[$read_only](red) "
+
+[git_branch]
+symbol = "git:"
+style = "purple"
+format = "[$symbol$branch]($style) "
+
+[git_status]
+style = "yellow"
+format = "([$all_status$ahead_behind]($style) )"
+
+[python]
+symbol = "py "
+format = '[${symbol}${version}( \($virtualenv\))]($style) '
+style = "yellow"
+
+[nodejs]
+symbol = "node "
+format = "[$symbol$version]($style) "
+style = "green"
+
+[cmd_duration]
+min_time = 2000
+format = "[took $duration](dimmed yellow) "
+
+[character]
+success_symbol = "[❯](bold green)"
+error_symbol = "[❯](bold red)"
+vimcmd_symbol = "[❮](bold blue)"

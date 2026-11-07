@@ -1,0 +1,21 @@
+# Secrets and local overrides
+.env
+.env.*
+!.env.example
+.config/env.sh
+*.pem
+*.key
+
+# Shell/editor state and downloaded dependencies
+.zsh_history
+.zcompdump*
+.viminfo
+*.swp
+*.swo
+*~
+__pycache__/
+*.pyc
+.local/
+.vim/
+.oh-my-zsh/
+.config/*-backups/
