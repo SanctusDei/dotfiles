@@ -35,7 +35,7 @@ OpenClaw 补全路径目前为 `/home/Master/.openclaw/completions/openclaw.zsh`
 
 ### Vim
 
-需要支持 terminal 的 Vim，插件管理器 vim-plug 应安装到 `~/.vim/autoload/plug.vim`。
+需要支持 terminal、termguicolors、timers 的 Vim（本机使用 Vim 9.1），插件管理器 vim-plug 应安装到 `~/.vim/autoload/plug.vim`。
 打开 Vim 后执行 `:PlugInstall` 安装声明的 9 个插件；首次安装完成后重新启动 Vim。
 首次安装前因缺少 vim-plug 或插件出现报错时，先补齐依赖再重启。
 Fugitive 使用 `~/.vim/bundle/vim-fugitive`，其余插件使用 `~/.vim/plugged/`。
@@ -51,3 +51,25 @@ uv tool install jedi-language-server
 运行 `:VimHealth` 检查依赖，`:PythonInfo` 查看项目解释器。
 恢复文件和编译产物写入 `~/.local/state/vim/`。
 剪贴板优先支持 WSL 的 Windows `clip.exe`，其次 `wl-copy` 或 Vim 原生 clipboard 功能。
+
+### Vim 视觉与性能
+
+使用 Tokyo Night Moon 风格的实色深蓝灰背景、柔和字符串颜色及统一的 lightline 状态栏。
+NERDTree / 中央代码区 / Tagbar 的目标比例为约 18% / 63% / 19%，根据终端列数自动调整；窄屏优先保留代码空间。
+启用相对行号、柔和当前行与括号匹配，保留原有快捷键、缩进、补全、诊断和运行功能。
+全部使用 Vim 原生 API；未增加主题插件、覆盖式边框或自定义命令输入框。
+终端透明度需自行设置，建议约 95% 不透明度；配置不会修改终端设置。
+
+字符串补全会复用未变化缓冲区中的完整候选列表，保留原先的候选顺序、80 项上限和 10000 行范围。
+可选 shellcheck 的可用性在首次打开 shell 文件时检测，减少其他语言启动时的无效 PATH 扫描。
+若使用 fzf 插件目录中的二进制，可在没有同名文件时建立快捷入口，避免 WSL 反复扫描 Windows PATH：
+
+```sh
+mkdir -p "$HOME/.local/bin"
+if [ -x "$HOME/.vim/plugged/fzf/bin/fzf" ] && [ ! -e "$HOME/.local/bin/fzf" ] && [ ! -L "$HOME/.local/bin/fzf" ]; then
+    ln -s "$HOME/.vim/plugged/fzf/bin/fzf" "$HOME/.local/bin/fzf"
+fi
+```
+
+验证覆盖 Python/C++ 语法配色、诊断、格式化、Tab/Enter 补全、侧栏、原生命令输入和终端运行。
+侧栏布局已检查 60、80、100、120、160 列的缩放；原有 157 个映射保持一致。

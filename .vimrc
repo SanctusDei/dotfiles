@@ -38,15 +38,16 @@ call plug#end()
 set encoding=utf-8
 set fileencodings=ucs-bom,utf-8,gb18030,latin1
 set hidden
-set number norelativenumber
+set number relativenumber
 set cursorline
+set showmatch matchtime=1
 set signcolumn=yes
 set laststatus=2
 set noshowmode
 set showcmd
 set shortmess+=I
 set cmdheight=2
-set scrolloff=5 sidescrolloff=8
+set scrolloff=5 sidescrolloff=5
 set nowrap
 set splitbelow splitright
 set mouse=a
@@ -104,8 +105,10 @@ let g:ale_linters = {
       \ 'c': executable('clangd') ? ['clangd'] : ['cc'],
       \ 'cpp': executable('clangd') ? ['clangd'] : ['cc'],
       \ 'python': ['ruff', 'jedi'],
-      \ 'sh': executable('shellcheck') ? ['shellcheck'] : [],
+      \ 'sh': [],
       \ }
+" Resolve the optional shell checker only when a shell buffer is opened.
+let s:shellcheck_checked = 0
 let g:ale_root = {'clangd': function('master#ProjectRoot')}
 let g:ale_c_cc_executable = 'gcc'
 let g:ale_cpp_cc_executable = 'g++'
@@ -138,17 +141,17 @@ let g:ale_open_list = 0
 let g:AutoPairsMapCR = 0
 
 " Sidebars and status line; use symbols that need no patched font.
-let g:NERDTreeWinSize = 28
+let g:NERDTreeWinSize = max([12, (&columns - 2) * 18 / 100])
 let g:NERDTreeShowHidden = 1
 let g:NERDTreeMinimalUI = 1
 let g:NERDTreeDirArrowExpandable = '›'
 let g:NERDTreeDirArrowCollapsible = '⌄'
 let g:NERDTreeIgnore = ['^\.git$', '^__pycache__$', '\.pyc$']
-let g:tagbar_width = 32
+let g:tagbar_width = max([14, (&columns - 2) * 19 / 100])
 let g:tagbar_autofocus = 1
 let g:tagbar_ctags_bin = exepath('ctags')
 let g:lightline = {
-      \ 'colorscheme': 'nord',
+      \ 'colorscheme': 'master_moon',
       \ 'active': {
       \   'left': [['mode', 'paste'], ['gitbranch', 'readonly', 'filename', 'modified']],
       \   'right': [['lineinfo'], ['percent'], ['filetype', 'fileencoding']]
@@ -214,6 +217,7 @@ command! -nargs=? -complete=customlist,master#KeyTopics VimKeys call master#Keys
 
 augroup MasterVim
     autocmd!
+    autocmd FileType sh if !s:shellcheck_checked | let g:ale_linters.sh = executable('shellcheck') ? ['shellcheck'] : [] | let s:shellcheck_checked = 1 | endif
     autocmd FileType python setlocal omnifunc=ale#completion#OmniFunc completefunc=master#StringComplete
     autocmd FileType c,cpp setlocal omnifunc=ale#completion#OmniFunc completefunc=master#StringComplete
     autocmd FileType markdown,text setlocal wrap linebreak spelllang=en_us
@@ -228,4 +232,13 @@ augroup MasterVim
     autocmd TextChangedI * if index(['python', 'c', 'cpp'], &filetype) >= 0 | call master#QueueStringCompletion() | endif
     autocmd InsertLeave,BufLeave * call master#StopStringTimer()
     autocmd TerminalOpen * setlocal nonumber norelativenumber nospell
+augroup END
+
+" Native window styling; delayed layout work coalesces terminal resize events.
+augroup MasterMoonUI
+    autocmd!
+    autocmd VimEnter,VimResized,TabEnter,BufWinEnter,WinClosed * call masterui#Schedule()
+    autocmd FileType nerdtree,tagbar call masterui#Schedule()
+    autocmd WinEnter * call masterui#ScheduleFocus()
+    autocmd ColorScheme master call masterui#ScheduleFocus()
 augroup END

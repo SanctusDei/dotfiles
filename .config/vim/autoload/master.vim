@@ -366,6 +366,20 @@ function! master#TextWords(buffer, base) abort
     if get(l:cache, 'tick', -1) == l:tick && get(l:cache, 'prefix', '') ==# a:base
         return l:cache.words
     endif
+    " A complete previous result can be narrowed without rescanning the buffer.
+    " Truncated lists, changed buffers and shorter prefixes still use the scan.
+    let l:previous = get(l:cache, 'prefix', '')
+    if get(l:cache, 'tick', -1) == l:tick && get(l:cache, 'complete', 0)
+          \ && l:previous =~# '^\w\+$' && a:base =~# '^\w\+$'
+          \ && strlen(a:base) > strlen(l:previous)
+          \ && stridx(tolower(a:base), tolower(l:previous)) == 0
+        let l:prefix = tolower(a:base)
+        let l:words = filter(copy(l:cache.words),
+              \ 'v:val !=# a:base && stridx(tolower(v:val), l:prefix) == 0')
+        call setbufvar(a:buffer, 'master_text_words',
+              \ {'tick': l:tick, 'prefix': a:base, 'words': l:words, 'complete': 1})
+        return l:words
+    endif
     let l:words = []
     let l:seen = {}
     let l:last = min([10000, getbufinfo(a:buffer)[0].linecount])
@@ -381,7 +395,7 @@ function! master#TextWords(buffer, base) abort
         endfor
         if len(l:words) >= 80 | break | endif
     endfor
-    call setbufvar(a:buffer, 'master_text_words', {'tick': l:tick, 'prefix': a:base, 'words': l:words})
+    call setbufvar(a:buffer, 'master_text_words', {'tick': l:tick, 'prefix': a:base, 'words': l:words, 'complete': len(l:words) < 80})
     return l:words
 endfunction
 
