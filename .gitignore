@@ -16,6 +16,9 @@
 __pycache__/
 *.pyc
 .local/
-.vim/
+.vim/*
+!.vim/templates/
+.vim/templates/*
+!.vim/templates/python.py
 .oh-my-zsh/
 .config/*-backups/

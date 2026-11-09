@@ -75,3 +75,6 @@ hi NERDTreeCurrentNode guifg=#D6DEED ctermfg=254 guibg=#2A3446 ctermbg=237 gui=N
 hi TagbarHighlight guifg=#D6DEED ctermfg=254 guibg=#2A3446 ctermbg=237 gui=NONE cterm=NONE
 hi! link masterCFunction Function
 hi! link masterPythonType Type
+
+" Unused Python names remain readable without diagnostic marks.
+hi MasterPythonUnused guifg=#63718A ctermfg=60 gui=NONE cterm=NONE

@@ -23,7 +23,11 @@ endif
 " vim-plug: reuse installed repositories; no downloads during startup.
 execute 'source ' . fnameescape(expand('~/.vim/autoload/plug.vim'))
 call plug#begin('~/.vim/plugged')
-Plug 'preservim/nerdtree'
+" Load the file tree when requested; directory buffers are handled below.
+Plug 'preservim/nerdtree', {'on': ['NERDTree', 'NERDTreeToggle',
+      \ 'NERDTreeExplore', 'NERDTreeClose', 'NERDTreeFromBookmark',
+      \ 'NERDTreeMirror', 'NERDTreeFind', 'NERDTreeRefreshRoot',
+      \ 'NERDTreeFocus', 'NERDTreeCWD']}
 Plug 'junegunn/fzf'
 Plug 'junegunn/fzf.vim'
 Plug 'dense-analysis/ale'
@@ -218,12 +222,13 @@ command! -nargs=? -complete=customlist,master#KeyTopics VimKeys call master#Keys
 augroup MasterVim
     autocmd!
     autocmd FileType sh if !s:shellcheck_checked | let g:ale_linters.sh = executable('shellcheck') ? ['shellcheck'] : [] | let s:shellcheck_checked = 1 | endif
-    autocmd FileType python setlocal omnifunc=ale#completion#OmniFunc completefunc=master#StringComplete
+    autocmd FileType python setlocal omnifunc=ale#completion#OmniFunc completefunc=master#StringComplete | call masterpython#Setup()
     autocmd FileType c,cpp setlocal omnifunc=ale#completion#OmniFunc completefunc=master#StringComplete
     autocmd FileType markdown,text setlocal wrap linebreak spelllang=en_us
     autocmd FileType make setlocal noexpandtab
     autocmd FileType javascript,typescript,json,yaml,html,css,vue setlocal shiftwidth=2 softtabstop=2
     autocmd FileType * setlocal formatoptions-=o formatoptions-=r
+    autocmd BufEnter,VimEnter * if !exists('g:loaded_nerd_tree') && isdirectory(expand('<amatch>')) | call masterui#BrowseDirectory(expand('<amatch>')) | endif
     autocmd SwapExists * call master#SwapDialog(expand('<afile>'))
     autocmd BufWritePost * call master#ArchiveRecoveredSwap()
     autocmd BufReadPost * call master#RestorePosition()
@@ -242,3 +247,44 @@ augroup MasterMoonUI
     autocmd WinEnter * call masterui#ScheduleFocus()
     autocmd ColorScheme master call masterui#ScheduleFocus()
 augroup END
+
+" Explicit Python contest template: vim --template file.py.
+function! s:PythonTemplate() abort
+    " Preserve every buffer that contains text, including whitespace.
+    if &buftype !=# '' || expand('%:e') !=# 'py'
+        return
+    endif
+    if line('$') != 1 || getline(1) !=# ''
+        return
+    endif
+    if !&modifiable || &readonly
+        return
+    endif
+
+    let l:path = expand('~/.vim/templates/python.py')
+    if !filereadable(l:path)
+        echoerr '找不到模板：' . l:path
+        return
+    endif
+
+    let l:lines = readfile(l:path)
+    if empty(l:lines)
+        return
+    endif
+
+    " Remove the first cursor marker and remember its code line.
+    let l:target = 1
+    for l:i in range(len(l:lines))
+        if l:lines[l:i] =~# '# @cursor\s*$'
+            let l:lines[l:i] = substitute(
+                        \ l:lines[l:i], '\s*# @cursor\s*$', '', '')
+            let l:target = l:i + 1
+            break
+        endif
+    endfor
+
+    call setline(1, l:lines)
+    call cursor(l:target, max([1, match(getline(l:target), '\S') + 1]))
+endfunction
+
+command! PythonTemplate call <SID>PythonTemplate()

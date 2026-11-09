@@ -7,7 +7,18 @@ function! s:Windows() abort
     return filter(getwininfo(), 'v:val.tabnr == tabpagenr() && v:val.winnr > 0')
 endfunction
 
+function! s:SetOption(window, option, value) abort
+    if getwinvar(a:window, '&' . a:option) !=# a:value
+        call setwinvar(a:window, '&' . a:option, a:value)
+    endif
+endfunction
+
 function! masterui#Focus(...) abort
+    " A layout update also satisfies any pending focus refresh.
+    if s:focus_timer >= 0
+        call timer_stop(s:focus_timer)
+        let s:focus_timer = -1
+    endif
     if get(g:, 'colors_name', '') !=# 'master'
         return
     endif
@@ -15,11 +26,11 @@ function! masterui#Focus(...) abort
     for l:w in s:Windows()
         let l:ft = getbufvar(l:w.bufnr, '&filetype')
         if index(['nerdtree', 'tagbar'], l:ft) >= 0
-            call setwinvar(l:w.winid, '&wincolor', 'MasterSidebar')
-            call setwinvar(l:w.winid, '&cursorline', l:w.winid == l:active)
+            call s:SetOption(l:w.winid, 'wincolor', 'MasterSidebar')
+            call s:SetOption(l:w.winid, 'cursorline', l:w.winid == l:active)
         elseif getbufvar(l:w.bufnr, '&buftype') ==# ''
-            call setwinvar(l:w.winid, '&wincolor', l:w.winid == l:active ? '' : 'MasterInactive')
-            call setwinvar(l:w.winid, '&cursorline', l:w.winid == l:active)
+            call s:SetOption(l:w.winid, 'wincolor', l:w.winid == l:active ? '' : 'MasterInactive')
+            call s:SetOption(l:w.winid, 'cursorline', l:w.winid == l:active)
         endif
     endfor
 endfunction
@@ -76,4 +87,13 @@ function! masterui#ScheduleFocus() abort
         call timer_stop(s:focus_timer)
     endif
     let s:focus_timer = timer_start(10, function('masterui#Focus'))
+endfunction
+
+" Keep NERDTree's directory browsing behavior with command-based loading.
+function! masterui#BrowseDirectory(path) abort
+    call plug#load('nerdtree')
+    if get(g:, 'NERDTreeHijackNetrw', 1)
+        silent! autocmd! FileExplorer
+        call nerdtree#checkForBrowse(a:path)
+    endif
 endfunction

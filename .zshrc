@@ -101,3 +101,31 @@ typeset -U path PATH
 
 # --- Terminal welcome ---
 [[ ! -r "$HOME/.config/terminal-welcome.zsh" ]] || source "$HOME/.config/terminal-welcome.zsh"
+
+function vim() {
+    local use_template=0 # 模板开关, 0表示不启用
+    # 暂存当前处理的参数
+    local arg
+    #
+    local -a vim_args=()
+
+    while (( $# )); do
+        arg="$1"
+        shift
+
+        case "$arg" in
+            --template) use_template=1 ;;
+            --)
+                vim_args+=("--" "$@")
+                break
+                ;;
+            *) vim_args+=("$arg") ;;
+        esac
+    done
+
+    if (( use_template )); then
+        command vim -c 'PythonTemplate' "${vim_args[@]}"
+    else
+        command vim "${vim_args[@]}"
+    fi
+}

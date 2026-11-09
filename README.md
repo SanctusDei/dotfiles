@@ -7,6 +7,7 @@
 - `.zshrc`、`.zshenv`：Oh My Zsh、NVM / Conda 延迟加载、代理、别名。
 - `.config/starship.toml`、`.config/terminal-welcome.zsh`：提示符与终端欢迎信息。
 - `.vimrc`、`.config/vim/`：Vim 配置、主题、Python / C / C++ 补全、格式化、运行和剪贴板辅助功能。
+- `.vim/templates/python.py`：带个人信息栏的力扣刷题模板。
 - [Vim 快捷键说明](.config/vim/README.md)：`;?` 或 `:VimKeys` 在 Vim 内打开。
 
 不包含 API 密钥文件 `~/.config/env.sh`、历史记录、缓存、备份、第三方插件源码和已安装工具。
@@ -16,10 +17,11 @@
 先备份目标机器上的同名文件，再从仓库目录执行：
 
 ```sh
-mkdir -p ~/.config/vim
+mkdir -p ~/.config/vim ~/.vim/templates
 cp .zshrc .zshenv .vimrc ~/
 cp .config/starship.toml .config/terminal-welcome.zsh ~/.config/
 cp -R .config/vim/. ~/.config/vim/
+cp .vim/templates/python.py ~/.vim/templates/
 ```
 
 配置依赖需要另外安装；复制文件不会安装这些工具。
@@ -35,7 +37,7 @@ OpenClaw 补全路径目前为 `/home/Master/.openclaw/completions/openclaw.zsh`
 
 ### Vim
 
-需要支持 terminal、termguicolors、timers 的 Vim（本机使用 Vim 9.1），插件管理器 vim-plug 应安装到 `~/.vim/autoload/plug.vim`。
+需要支持 terminal、termguicolors、timers、textprop 的 Vim（本机使用 Vim 9.1），插件管理器 vim-plug 应安装到 `~/.vim/autoload/plug.vim`。
 打开 Vim 后执行 `:PlugInstall` 安装声明的 9 个插件；首次安装完成后重新启动 Vim。
 首次安装前因缺少 vim-plug 或插件出现报错时，先补齐依赖再重启。
 Fugitive 使用 `~/.vim/bundle/vim-fugitive`，其余插件使用 `~/.vim/plugged/`。
@@ -73,3 +75,23 @@ fi
 
 验证覆盖 Python/C++ 语法配色、诊断、格式化、Tab/Enter 补全、侧栏、原生命令输入和终端运行。
 侧栏布局已检查 60、80、100、120、160 列的缩放；原有 157 个映射保持一致。
+
+### Python 刷题模板与未使用变量
+
+重新启动 zsh 或执行 `source ~/.zshrc` 后：
+
+```sh
+vim test.py              # 正常打开，不添加模板
+vim --template test.py   # 仅空的 .py 文件插入模板
+```
+
+模板采用 `Solution` 类结构；根据题目修改方法签名，个人信息与题目记录可自行编辑。
+模板里的首个 `# @cursor` 标记在插入时删除，光标定位到该行；文件内容需要手动保存。
+已有内容（包括空格）的文件不会插入模板。在 Vim 内也可以执行 `:PythonTemplate`。
+
+Ruff 报告的未使用导入、局部变量、类型注解，以及已启用的未使用参数检查，改为暗色文字，不进入侧边诊断或错误列表；其他诊断保留。
+显示在退出插入模式或保存后刷新。未变化的缓冲区和诊断会复用暗色标记，避免重复扫描与绘制。
+
+NERDTree 在首次调用文件树命令或打开目录时加载，保留目录浏览和文件菜单。
+本机启动测量各 7 次的中位数：普通启动约 52 → 19 ms，Python 文件约 70 → 33 ms；不包含语言服务就绪时间。
+完整验证记录见 [VALIDATION.md](.config/vim/VALIDATION.md)。
