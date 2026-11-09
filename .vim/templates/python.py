@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 """
-Author: SanctusDei
-Email: jiahaog006@gmail.com
-Homepage: https://github.com/SanctusDei
+Author: 
+Email:
+Homepage:
 
 Problem:
 Link:
