@@ -1,3 +1,51 @@
+" Offer the main guard as a completion item on an otherwise empty line.
+function! masterpython#MainPrefix() abort
+    let l:left = strpart(getline('.'), 0, col('.') - 1)
+    let l:word = matchstr(l:left, '\k*$')
+    return l:left =~# '^\s*__m\k*$' && stridx('__main__', l:word) == 0
+                \ && strpart(getline('.'), col('.') - 1) =~# '^\s*$'
+                \ && !master#InString()
+endfunction
+
+function! masterpython#QueueMain() abort
+    if &paste || &buftype !=# '' || !masterpython#MainPrefix()
+        return 0
+    endif
+    call ale#completion#StopTimer()
+    if exists('b:ale_completion_info')
+        let b:ale_completion_info.request_id = 0
+    endif
+    let b:master_string_timer = timer_start(100, function('masterpython#MainMenu',
+                \ [bufnr(''), getpos('.')[1:2], b:changedtick]))
+    return 1
+endfunction
+
+function! masterpython#MainMenu(buffer, position, tick, timer) abort
+    if bufnr('') != a:buffer || mode() !=# 'i' || &filetype !=# 'python'
+                \ || getpos('.')[1:2] != a:position || b:changedtick != a:tick
+                \ || !masterpython#MainPrefix() || &paste
+        return
+    endif
+    let b:master_string_timer = -1
+    let l:start = match(strpart(getline('.'), 0, col('.') - 1), '\k*$') + 1
+    call complete(l:start, [{'word': '__main__', 'abbr': '__main__',
+                \ 'menu': '[snippet] if __name__ == "__main__":',
+                \ 'info': "if __name__ == \"__main__\":\n    pass",
+                \ 'user_data': 'master_python_main', 'equal': 1}])
+endfunction
+
+function! masterpython#MainDone() abort
+    if get(v:completed_item, 'user_data', '') !=# 'master_python_main'
+                \ || getline('.') !~# '^\s*__main__\s*$'
+        return
+    endif
+    let l:indent = matchstr(getline('.'), '^\s*')
+    let l:body = l:indent . repeat(' ', shiftwidth()) . 'pass'
+    call setline('.', l:indent . 'if __name__ == "__main__":')
+    call append(line('.'), l:body)
+    call cursor(line('.') + 1, strlen(l:body) + 1)
+endfunction
+
 " Present unused Python symbols as dim text rather than ALE problems.
 function! masterpython#Setup() abort
     for l:linter in ale#linter#Get('python')

@@ -235,6 +235,7 @@ augroup MasterVim
     autocmd FocusGained * if &buftype ==# '' | silent! checktime | endif
     autocmd BufEnter * if &buftype ==# '' | silent! execute 'checktime ' . bufnr('') | endif
     autocmd TextChangedI * if index(['python', 'c', 'cpp'], &filetype) >= 0 | call master#QueueStringCompletion() | endif
+    autocmd CompleteDone * if &filetype ==# 'python' | call masterpython#MainDone() | endif
     autocmd InsertLeave,BufLeave * call master#StopStringTimer()
     autocmd TerminalOpen * setlocal nonumber norelativenumber nospell
 augroup END

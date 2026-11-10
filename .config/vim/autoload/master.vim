@@ -280,6 +280,9 @@ endfunction
 
 function! master#QueueStringCompletion() abort
     call master#StopStringTimer()
+    if &filetype ==# 'python' && masterpython#QueueMain()
+        return
+    endif
     if &paste || pumvisible() || &buftype !=# ''
         return
     endif
