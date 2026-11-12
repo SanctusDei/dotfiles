@@ -1,4 +1,4 @@
-# Zsh 与 Vim 配置
+# Zsh、Vim 与 Git 提交配置
 
 当前 Linux / WSL 开发环境的配置快照。配置文件按家目录中的相对路径保存。
 
@@ -8,6 +8,7 @@
 - `.config/starship.toml`、`.config/terminal-welcome.zsh`：提示符与终端欢迎信息。
 - `.vimrc`、`.config/vim/`：Vim 配置、主题、Python / C / C++ 补全、格式化、运行和剪贴板辅助功能。
 - `.vim/templates/python.py`：带个人信息栏的力扣刷题模板。
+- `.config/aicommits/`：中文详细提交信息模板、hook 接入脚本和维护说明。
 - [Vim 快捷键说明](.config/vim/README.md)：`;?` 或 `:VimKeys` 在 Vim 内打开。
 
 不包含 API 密钥文件 `~/.config/env.sh`、历史记录、缓存、备份、第三方插件源码和已安装工具。
@@ -95,3 +96,23 @@ Ruff 报告的未使用导入、局部变量、类型注解，以及已启用的
 NERDTree 在首次调用文件树命令或打开目录时加载，保留目录浏览和文件菜单。
 本机启动测量各 7 次的中位数：普通启动约 52 → 19 ms，Python 文件约 70 → 33 ms；不包含语言服务就绪时间。
 完整验证记录见 [VALIDATION.md](.config/vim/VALIDATION.md)。
+
+### AI Git 提交信息
+
+需要先安装并配置 `aicommits`（当前验证版本为 5.0.1）。模型、服务商和凭据在本机通过 `aicommits setup` 配置，不随 dotfiles 同步。
+
+备份目标机器的同名文件后，从仓库目录执行：
+
+```sh
+mkdir -p ~/.config/aicommits
+cp -R .config/aicommits/. ~/.config/aicommits/
+python3 ~/.config/aicommits/apply-template.py
+```
+
+再到需要自动生成提交信息的 Git 仓库中执行一次 `aicommits hook install`。
+以后 `git add` 后运行 `git commit`，会生成中文 Conventional Commits 标题和正文，打开编辑器确认后提交。
+
+直接编辑 `~/.config/aicommits/commit-prompt.txt` 即可调整模板，下一次提交自动读取。
+升级 aicommits 或切换 Node 版本后，重新运行 `apply-template.py`；已有仓库如果仍指向旧安装，也需重新安装 hook。
+该脚本通过补丁接入模板，会检查程序结构和语法并备份原程序；不兼容的版本会停止，不修改程序。
+详见 [模板维护说明](.config/aicommits/README.md)。
