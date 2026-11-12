@@ -49,7 +49,8 @@ set signcolumn=yes
 set laststatus=2
 set noshowmode
 set showcmd
-set shortmess+=I
+" Avoid completion status messages while typing, including Chinese text.
+set shortmess+=Ic
 set cmdheight=2
 set scrolloff=5 sidescrolloff=5
 set nowrap
@@ -124,6 +125,8 @@ let g:ale_fixers = {
       \ 'cpp': ['clang-format'],
       \ }
 let g:ale_python_ruff_executable = expand('~/.local/bin/ruff')
+" Allow personal import ordering and typing.List-style annotations.
+let g:ale_python_ruff_options = '--extend-ignore I001,UP006,UP035,RUF013,PLW1508,BLE001'
 let g:ale_python_ruff_format_executable = expand('~/.local/bin/ruff')
 let g:ale_lint_on_text_changed = 'never'
 let g:ale_lint_on_insert_leave = 1
@@ -198,6 +201,8 @@ nnoremap <silent> <leader>Y :Copy<CR>
 nnoremap <leader>P "+p
 nnoremap <silent> <F3> :NERDTreeToggle<CR>
 inoremap <silent> <F3> <C-O>:NERDTreeToggle<CR>
+nnoremap <silent> <F4> :StopRun<CR>
+inoremap <silent> <F4> <C-O>:StopRun<CR>
 nnoremap <silent> <F5> :Run<CR>
 nnoremap <silent> <F6> :call master#Format()<CR>
 nnoremap <silent> <F8> :Run!<CR>
@@ -214,7 +219,10 @@ if has('terminal')
     tnoremap <Esc><Esc> <C-W>N
 endif
 command! -range=% Copy call master#CopyLines(<line1>, <line2>)
+" Wall-clock limit for F5, including compilation and waiting for input; 0 disables it.
+let g:master_run_timeout_ms = get(g:, 'master_run_timeout_ms', 5000)
 command! -bang Run call master#Run(<bang>0)
+command! StopRun call master#StopRun()
 command! PythonInfo call master#PythonInfo()
 command! VimHealth call master#Health()
 command! -nargs=? -complete=customlist,master#KeyTopics VimKeys call master#Keys(<q-args>)
@@ -238,6 +246,13 @@ augroup MasterVim
     autocmd CompleteDone * if &filetype ==# 'python' | call masterpython#MainDone() | endif
     autocmd InsertLeave,BufLeave * call master#StopStringTimer()
     autocmd TerminalOpen * setlocal nonumber norelativenumber nospell
+    autocmd QuitPre * if get(b:, 'master_run', 0) | call master#StopRun() | endif
+augroup END
+
+" Detect external file/directory changes while the tree is visible.
+augroup MasterTreeRefresh
+    autocmd!
+    autocmd FocusGained,BufWritePost,WinEnter,TabEnter * call mastertree#Poll()
 augroup END
 
 " Native window styling; delayed layout work coalesces terminal resize events.

@@ -5,6 +5,5 @@ call ale#linter#Define('python', {
       \ 'executable': expand('~/.local/bin/jedi-language-server'),
       \ 'command': ale#Escape(expand('~/.local/bin/jedi-language-server')),
       \ 'project_root': function('ale#python#FindProjectRoot'),
-      \ 'completion_filter': 'ale#completion#python#CompletionItemFilter',
       \ 'initialization_options': function('master#JediOptions'),
       \ })

@@ -83,3 +83,21 @@
 - 保留用户自行修改后的模板，模板仅插入空文件，重复调用不插入，光标定位到用户当前独立的 @cursor 标记行；未使用导入/局部变量/注解继续变暗，未定义名称诊断保留。
 - 备份：/home/Master/.config/vim-backups/efficiency-20261109-170736/。
 - 测试及原始耗时：/tmp/vim-efficiency-review-hk5k9fqc/。
+# 运行终止修复（2026-11-12）
+
+- F5 新增默认 5000 毫秒时限；忽略 SIGINT/SIGTERM 的死循环被自动终止，原输出保留，末尾追加“运行超时 / Time Limit Exceeded”。
+- 正常完成不误报；设置时限为 0 后不自动停止，F4 仍可停止；超时输出可按 q 关闭。
+- 自动测试：/tmp/vim-run-timeout-s64w8c1s/。
+- 使用忽略 SIGINT 和 SIGTERM 的 Python 死循环验证：源码窗口的 F4 和运行终端输入模式的 F4 均能强制终止任务。
+- 停止后保留输出；重复停止已结束任务不会报错，普通 Python 程序输出 RUN_OK 保留。
+- 真实伪终端验证 Esc Esc 后 q 停止并关闭运行窗口，:qa 在仍有死循环时正常退出；脚本验证 :q 关闭当前运行窗口。
+- 配置备份：~/.config/vim-backups/run-stop-20261112-165325/。测试记录：/tmp/vim-run-stop-9873os9g/。
+
+## Dotfiles 同步复核（2026-11-12）
+
+- 使用待提交的 .vimrc 加载 Vim，无配置错误；Python 模板可解析并运行。
+- 空 Python 文件插入模板后移除 @cursor、定位到 pass；重复插入不修改内容。
+- 包内 Python 文件以 -m 执行，相对导入成功；仓库边界下的文件可找到所属 pyproject.toml 项目的虚拟环境。
+- 忽略 SIGINT/SIGTERM 的循环在超时后终止，保留原输出和超时提示；正常程序输出保留且不误报。
+- 关闭时限后可从源码窗口手动停止最近的运行任务；文件树在创建文件后通过 Poll 刷新。
+- 本次临时验证记录：/tmp/dotfiles-vim-check-e47bec_j/。未重新执行本文件中其他历史验证。

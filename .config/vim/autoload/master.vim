@@ -42,6 +42,7 @@ function! master#RunCommand(debug) abort
         throw 'Run: save a source file first.'
     endif
     let l:qfile = shellescape(l:file)
+    let l:cwd = fnamemodify(l:file, ':h')
     let l:ft = &filetype
     let l:required = []
     let l:cmd = ''
@@ -60,7 +61,18 @@ function! master#RunCommand(debug) abort
     elseif l:ft ==# 'python'
         let l:python = master#Python(bufnr(''))
         let l:required = [l:python]
-        let l:cmd = shellescape(l:python) . ' ' . l:qfile
+        let l:parts = [fnamemodify(l:file, ':t:r')]
+        " Package files need their import root on sys.path, just like python -m.
+        while filereadable(l:cwd . '/__init__.py')
+            call insert(l:parts, fnamemodify(l:cwd, ':t'))
+            let l:parent = fnamemodify(l:cwd, ':h')
+            if l:parent ==# l:cwd
+                break
+            endif
+            let l:cwd = l:parent
+        endwhile
+        let l:target = len(l:parts) > 1 ? '-m ' . shellescape(join(l:parts, '.')) : l:qfile
+        let l:cmd = shellescape(l:python) . ' ' . l:target
     elseif l:ft ==# 'sh'
         let l:required = ['bash']
         let l:cmd = 'bash ' . l:qfile
@@ -78,7 +90,7 @@ function! master#RunCommand(debug) abort
             throw 'Run: missing tool: ' . l:tool
         endif
     endfor
-    return 'cd ' . shellescape(fnamemodify(l:file, ':h')) . ' && ' . l:cmd
+    return 'cd ' . shellescape(l:cwd) . ' && ' . l:cmd
 endfunction
 
 function! master#Run(debug) abort
@@ -86,15 +98,85 @@ function! master#Run(debug) abort
         if !has('terminal')
             throw 'Run: this Vim does not support terminal windows.'
         endif
+        let l:timeout = a:debug ? 0 : get(g:, 'master_run_timeout_ms', 5000)
+        if type(l:timeout) != v:t_number || l:timeout < 0
+            throw 'Run: master_run_timeout_ms must be a non-negative integer.'
+        endif
         let l:command = master#RunCommand(a:debug)
         update
         let l:name = 'Run: ' . expand('%:t')
         botright new
         resize 12
-        call term_start(['sh', '-c', l:command], {'curwin': 1, 'term_name': l:name, 'term_finish': 'open'})
+        let l:state = {'timer': -1}
+        let l:buffer = term_start(['sh', '-c', l:command],
+              \ {'curwin': 1, 'term_name': l:name, 'term_kill': 'kill', 'stoponexit': 'kill',
+              \ 'exit_cb': function('master#RunExited', [l:state])})
+        if l:buffer <= 0
+            throw 'Run: could not start terminal.'
+        endif
+        " 'hidden' is enabled globally: closing this window must end its job.
+        setlocal bufhidden=wipe
+        let b:master_run = 1
+        let b:master_run_job = term_getjob(l:buffer)
+        if l:timeout > 0 && job_status(b:master_run_job) ==# 'run'
+            let l:state.timer = timer_start(l:timeout,
+                  \ function('master#RunTimeout', [l:buffer, b:master_run_job, l:timeout]))
+        endif
+        let s:last_run = l:buffer
+        tnoremap <silent> <buffer> <F4> <C-W>N:StopRun<CR>
+        nnoremap <silent> <buffer> q :bdelete!<CR>
     catch
         echohl WarningMsg | echomsg v:exception | echohl None
     endtry
+endfunction
+
+function! master#RunExited(state, job, status) abort
+    if a:state.timer != -1
+        call timer_stop(a:state.timer)
+        let a:state.timer = -1
+    endif
+endfunction
+
+function! master#RunTimeout(buffer, job, timeout, timer) abort
+    if !bufexists(a:buffer) || getbufvar(a:buffer, 'master_run_job', v:null) isnot a:job
+          \ || job_status(a:job) !=# 'run'
+        return
+    endif
+    call job_stop(a:job, 'kill')
+    call term_wait(a:buffer, 100)
+    let l:message = printf('[运行超时 / Time Limit Exceeded] 超过 %.3g 秒，程序已终止。', a:timeout / 1000.0)
+    call setbufvar(a:buffer, 'master_run_error', l:message)
+    " Finished terminal buffers can be edited; keep the output and append the error.
+    call setbufvar(a:buffer, '&modifiable', 1)
+    call appendbufline(a:buffer, '$', ['', l:message])
+    call setbufvar(a:buffer, '&buftype', 'nofile')
+    call setbufvar(a:buffer, '&modified', 0)
+    call setbufvar(a:buffer, '&modifiable', 0)
+    for l:window in win_findbuf(a:buffer)
+        call win_execute(l:window, 'normal! G')
+    endfor
+    echohl ErrorMsg | echomsg l:message | echohl None
+endfunction
+
+" Prefer the current run; from source code stop the most recently started run.
+function! master#StopRun() abort
+    let l:buffer = get(b:, 'master_run', 0) ? bufnr('') : get(s:, 'last_run', -1)
+    if !bufexists(l:buffer) || !getbufvar(l:buffer, 'master_run', 0)
+        echo 'Run: no run to stop.'
+        return
+    endif
+    if getbufvar(l:buffer, '&buftype') !=# 'terminal'
+        echo 'Run: already finished.'
+        return
+    endif
+    let l:job = term_getjob(l:buffer)
+    if job_status(l:job) ==# 'run'
+        call job_stop(l:job, 'kill')
+        call term_wait(l:buffer, 100)
+        echo 'Run: stopped; output kept. Press q in the run window to close.'
+    else
+        echo 'Run: already finished.'
+    endif
 endfunction
 
 " Standalone C/C++ files also need an LSP workspace.
@@ -147,6 +229,18 @@ function! master#Python(buffer) abort
         endif
         let l:dir = l:parent
     endwhile
+    " A workspace boundary may sit below the owning Python project's .venv.
+    let l:project = findfile('pyproject.toml', fnamemodify(bufname(a:buffer), ':p:h') . ';')
+    if !empty(l:project)
+        for l:env in ['.venv', 'venv']
+            for l:bin in ['python3', 'python']
+                let l:python = fnamemodify(l:project, ':p:h') . '/' . l:env . '/bin/' . l:bin
+                if executable(l:python)
+                    return l:python
+                endif
+            endfor
+        endfor
+    endif
     for l:bin in ['python3', 'python']
         if executable(l:bin)
             return exepath(l:bin)

@@ -116,3 +116,10 @@ python3 ~/.config/aicommits/apply-template.py
 升级 aicommits 或切换 Node 版本后，重新运行 `apply-template.py`；已有仓库如果仍指向旧安装，也需重新安装 hook。
 该脚本通过补丁接入模板，会检查程序结构和语法并备份原程序；不兼容的版本会停止，不修改程序。
 详见 [模板维护说明](.config/aicommits/README.md)。
+
+### 运行控制与 Python 环境
+
+F5 默认限制 5 秒（含编译和等待输入），超时终止任务并保留输出；通过 `g:master_run_timeout_ms` 调整，0 表示关闭时限。F8 的 gdb 调试不受此时限限制。
+F4 或 `:StopRun` 强制停止当前或最近一次运行，运行窗口中的 `q` 停止并关闭窗口。
+Python 包内文件以模块方式运行，支持相对导入；解释器查找补充所属 pyproject.toml 项目的虚拟环境。
+文件树在窗口切换、保存和重新聚焦时检查目录变化并刷新。Ruff 忽略规则详见 Vim 快捷键说明。
