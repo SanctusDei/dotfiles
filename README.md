@@ -119,7 +119,7 @@ python3 ~/.config/aicommits/apply-template.py
 
 ### 运行控制与 Python 环境
 
-F5 默认限制 5 秒（含编译和等待输入），超时终止任务并保留输出；通过 `g:master_run_timeout_ms` 调整，0 表示关闭时限。F8 的 gdb 调试不受此时限限制。
+F5 默认没有硬超时，等待 API、网络或输入可继续运行。Linux 上连续约 10 秒高 CPU 占用时提示“可能死循环”，不自动终止，按 F4 停止；通过 `g:master_run_busy_warn_ms` 调整提醒阈值，0 关闭提醒。需要硬超时时设置 `g:master_run_timeout_ms`（默认 0）；F8 调试不监测。正常计算也可能触发提醒，含休眠的死循环或死锁可能无法检测。
 F4 或 `:StopRun` 强制停止当前或最近一次运行，运行窗口中的 `q` 停止并关闭窗口。
 Python 包内文件以模块方式运行，支持相对导入；解释器查找补充所属 pyproject.toml 项目的虚拟环境。
 文件树在窗口切换、保存和重新聚焦时检查目录变化并刷新。Ruff 忽略规则详见 Vim 快捷键说明。

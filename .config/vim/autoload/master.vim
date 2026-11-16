@@ -98,7 +98,7 @@ function! master#Run(debug) abort
         if !has('terminal')
             throw 'Run: this Vim does not support terminal windows.'
         endif
-        let l:timeout = a:debug ? 0 : get(g:, 'master_run_timeout_ms', 5000)
+        let l:timeout = a:debug ? 0 : get(g:, 'master_run_timeout_ms', 0)
         if type(l:timeout) != v:t_number || l:timeout < 0
             throw 'Run: master_run_timeout_ms must be a non-negative integer.'
         endif
@@ -107,7 +107,7 @@ function! master#Run(debug) abort
         let l:name = 'Run: ' . expand('%:t')
         botright new
         resize 12
-        let l:state = {'timer': -1}
+        let l:state = {'timer': -1, 'watch_timer': -1}
         let l:buffer = term_start(['sh', '-c', l:command],
               \ {'curwin': 1, 'term_name': l:name, 'term_kill': 'kill', 'stoponexit': 'kill',
               \ 'exit_cb': function('master#RunExited', [l:state])})
@@ -122,6 +122,20 @@ function! master#Run(debug) abort
             let l:state.timer = timer_start(l:timeout,
                   \ function('master#RunTimeout', [l:buffer, b:master_run_job, l:timeout]))
         endif
+        let l:warn_ms = get(g:, 'master_run_busy_warn_ms', 10000)
+        if !a:debug && type(l:warn_ms) == v:t_number && l:warn_ms > 0
+              \ && isdirectory('/proc/self/task') && job_status(b:master_run_job) ==# 'run'
+            let l:state.pid = job_info(b:master_run_job).process
+            let l:state.cpu = master#RunCpuTicks(l:state.pid)
+            let l:state.clock = reltime()
+            let l:state.busy_ms = 0.0
+            let l:state.hz = str2nr(system('getconf CLK_TCK'))
+            if l:state.hz > 0
+                let l:state.watch_timer = timer_start(1000,
+                      \ function('master#RunWatch', [l:buffer, b:master_run_job, l:state, l:warn_ms]),
+                      \ {'repeat': -1})
+            endif
+        endif
         let s:last_run = l:buffer
         tnoremap <silent> <buffer> <F4> <C-W>N:StopRun<CR>
         nnoremap <silent> <buffer> q :bdelete!<CR>
@@ -131,9 +145,65 @@ function! master#Run(debug) abort
 endfunction
 
 function! master#RunExited(state, job, status) abort
+    if a:state.watch_timer != -1
+        call timer_stop(a:state.watch_timer)
+        let a:state.watch_timer = -1
+    endif
     if a:state.timer != -1
         call timer_stop(a:state.timer)
         let a:state.timer = -1
+    endif
+endfunction
+
+" Linux CPU accounting for the job and its live descendants, including threads' children.
+" CPU activity is only a heuristic; never kill a job on this evidence.
+function! master#RunCpuTicks(pid) abort
+    let l:pending = [a:pid]
+    let l:seen = {}
+    let l:ticks = 0
+    while !empty(l:pending)
+        let l:pid = remove(l:pending, -1)
+        if has_key(l:seen, l:pid)
+            continue
+        endif
+        let l:seen[l:pid] = 1
+        try
+            " The process name can contain spaces and closing parentheses.
+            let l:stat = split(substitute(readfile('/proc/' . l:pid . '/stat')[0], '^.*) ', '', ''))
+            " utime/stime and reaped children's CPU; retain time across short-lived workers.
+            let l:ticks += str2nr(l:stat[11]) + str2nr(l:stat[12])
+                  \ + str2nr(l:stat[13]) + str2nr(l:stat[14])
+            for l:file in glob('/proc/' . l:pid . '/task/*/children', 0, 1)
+                call extend(l:pending, map(split(join(readfile(l:file))), 'str2nr(v:val)'))
+            endfor
+        catch /^Vim\%((\a\+)\)\=:E\%(484\|684\)/
+            " A process or thread may exit between listing and reading it.
+        endtry
+    endwhile
+    return l:ticks
+endfunction
+
+function! master#RunWatch(buffer, job, state, warn_ms, timer) abort
+    if !bufexists(a:buffer) || getbufvar(a:buffer, 'master_run_job', v:null) isnot a:job
+          \ || job_status(a:job) !=# 'run'
+        call timer_stop(a:timer)
+        let a:state.watch_timer = -1
+        return
+    endif
+    let l:elapsed = reltimefloat(reltime(a:state.clock)) * 1000.0
+    let l:cpu = master#RunCpuTicks(a:state.pid)
+    let l:cpu_ms = (l:cpu - a:state.cpu) * 1000.0 / a:state.hz
+    let a:state.clock = reltime()
+    let a:state.cpu = l:cpu
+    " At least 80% of one core for consecutive samples; waiting resets the streak.
+    let a:state.busy_ms = l:cpu_ms >= l:elapsed * 0.8 ? a:state.busy_ms + l:elapsed : 0.0
+    if a:state.busy_ms >= a:warn_ms
+        call timer_stop(a:timer)
+        let a:state.watch_timer = -1
+        let l:message = printf('[可能死循环] 连续高 CPU 占用约 %.1f 秒；也可能是正常计算。程序继续运行，按 F4 停止。', a:state.busy_ms / 1000.0)
+        call setbufvar(a:buffer, 'master_run_warning', l:message)
+        " Keep terminal output and input intact. The warning is also in :messages.
+        echohl WarningMsg | echomsg l:message | echohl None
     endif
 endfunction
 

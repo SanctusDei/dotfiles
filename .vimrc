@@ -219,8 +219,10 @@ if has('terminal')
     tnoremap <Esc><Esc> <C-W>N
 endif
 command! -range=% Copy call master#CopyLines(<line1>, <line2>)
-" Wall-clock limit for F5, including compilation and waiting for input; 0 disables it.
-let g:master_run_timeout_ms = get(g:, 'master_run_timeout_ms', 5000)
+" Optional wall-clock kill limit; disabled for normal long-running programs.
+let g:master_run_timeout_ms = get(g:, 'master_run_timeout_ms', 0)
+" Warn after sustained CPU activity (Linux); 0 disables warnings. Never auto-kills.
+let g:master_run_busy_warn_ms = get(g:, 'master_run_busy_warn_ms', 10000)
 command! -bang Run call master#Run(<bang>0)
 command! StopRun call master#StopRun()
 command! PythonInfo call master#PythonInfo()
