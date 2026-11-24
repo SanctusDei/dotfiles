@@ -103,6 +103,10 @@ function! master#Run(debug) abort
             throw 'Run: master_run_timeout_ms must be a non-negative integer.'
         endif
         let l:command = master#RunCommand(a:debug)
+        if has('linux') && &encoding ==# 'utf-8' && executable('stty')
+            " Erase whole UTF-8 characters in the child PTY's canonical mode.
+            let l:command = 'stty iutf8 2>/dev/null; ' . l:command
+        endif
         update
         let l:name = 'Run: ' . expand('%:t')
         botright new
